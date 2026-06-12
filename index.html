@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ระบบคำนวณจัดคละแพทเทิร์นรวมแผ่น A1-A50</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#94a3b8;--glass:rgba(255,255,255,0.04);--accent:#7c3aed}
+    body{background:linear-gradient(180deg,rgba(124,58,237,0.12),transparent),var(--bg);color:#e6eef8;font-family:Inter,Segoe UI,sans-serif}
+    .glass-card{backdrop-filter:blur(6px);background:var(--glass);border:1px solid rgba(255,255,255,0.06);box-shadow:0 6px 18px rgba(2,6,23,0.6);border-radius:12px}
+    .small-muted{font-size:0.85rem;color:var(--muted)}
+    .viz-card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:15px;border-radius:8px;margin-bottom:15px;border: 1px solid rgba(255,255,255,0.06);position:relative}
+    .best-badge{position:absolute;top:15px;right:15px;background:linear-gradient(135deg, #10b981, #059669);color:white;padding:5px 12px;border-radius:20px;font-size:0.8rem;font-weight:bold}
+    .pattern-tag{background:rgba(124,58,237,0.2);border:1px solid var(--accent);color:#c084fc;padding:2px 8px;border-radius:4px;font-size:0.85rem;font-weight:bold}
+    .component-badge{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);padding:2px 6px;border-radius:4px;font-size:0.8rem;margin-right:4px;display:inline-block;}
+    @media print{
+      body > *{ display:none !important; }
+      .container-fluid{ display:block !important; }
+      .container-fluid > .row > *{ display:none !important; }
+      .container-fluid > .row > .col-lg-8{ display:block !important; }
+      .col-lg-8 > *{ display:none !important; }
+      #summaryTableWrap{ display:block !important; position:static; }
+      .card.glass-card.p-3.mb-3{ display:block !important; background:none; border:none; box-shadow:none; padding:0 !important; }
+      .card.glass-card.p-3.mb-3 > .d-flex{ display:none !important; }
+      #summaryTable{ color:#000 !important; width:100% !important; table-layout:fixed; }
+      #summaryTable th, #summaryTable td{ color:#000 !important; border:1px solid #999 !important; word-wrap:break-word; white-space:normal !important; }
+      .pattern-tag{ color:#000 !important; border-color:#000 !important; }
+      .component-badge{ color:#000 !important; border-color:#999 !important; background:#f1f1f1 !important; white-space:normal !important; }
+      @page{ size:landscape; margin:10mm; }
+    }
+  </style>
+</head>
+<body data-theme="dark">
+  <nav class="navbar navbar-dark bg-transparent px-3">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center" href="#">
+        <div class="me-2" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),#2dd4bf)">
+          <i class="bi bi-layers-half" style="font-size:18px;color:white"></i>
+        </div>
+        <div>
+          <div style="font-weight:700">ระบบจัดแพทเทิร์นรวมแผ่นประหยัดเศษกระจก (Mix Optimizer)</div>
+          <div class="small-muted">แสดงข้อมูลขนาดชิ้นงานทั้งหมดที่ติดมากับแพทเทิร์นอย่างครบถ้วน</div>
+        </div>
+      </a>
+    </div>
+  </nav>
+
+  <div class="container-fluid mt-4">
+    <div class="row g-3">
+      <div class="col-lg-4">
+        <div class="p-3 glass-card">
+          <h5><i class="bi bi-list-check text-warning"></i> เลือกขนาดหน้าบานกระจก</h5>
+          <form id="inputForm" class="row g-2">
+            <div class="col-12">
+              <label class="form-label text-info font-weight-bold">รายการขนาดทั้งหมด (กว้าง × สูง ซม.)</label>
+              <select id="sizeSelect" class="form-select form-select-sm"></select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">จำนวนแผ่นที่ต้องการใช้จริง</label>
+              <input id="needQty" class="form-control form-control-sm" type="number" value="5" min="1" />
+            </div>
+            <div class="col-12 d-flex gap-2 flex-wrap mt-2">
+              <button id="btnAdd" type="button" class="btn btn-secondary btn-sm">เพิ่มเข้า List รายการ</button>
+              <button id="btnOptimize" type="button" class="btn btn-warning btn-sm w-100 mt-1">📊 ประมวลผลรวมแผ่นคละขนาด</button>
+              <button id="btnClearList" type="button" class="btn btn-outline-danger btn-sm">ล้างทั้งหมด</button>
+            </div>
+            <div class="col-12 mt-3">
+              <label class="form-label">รายการที่ต้องการคละรวมปัจจุบัน</label>
+              <div class="table-responsive">
+                <table class="table table-sm table-hover text-white">
+                  <thead class="table-light"><tr><th>#</th><th>ขนาด (ซม.)</th><th>ต้องการ</th><th>จัดลงแผ่นแล้ว</th></tr></thead>
+                  <tbody id="requestList"></tbody>
+                </table>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="col-lg-8">
+        <div class="card glass-card p-3 mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="mb-0"><i class="bi bi-box-seam-fill text-success"></i> สรุปผลการจัดวางกระจกคละรวมแผ่น</h5>
+            <button id="btnPrintSummary" type="button" class="btn btn-outline-light btn-sm"><i class="bi bi-printer"></i> พิมพ์</button>
+          </div>
+          <div class="table-responsive" id="summaryTableWrap">
+            <table class="table table-sm table-hover text-white" id="summaryTable">
+              <thead class="table-light">
+                <tr>
+                  <th>ชุดแผ่นตัด</th>
+                  <th>ใช้แพทเทิร์น</th>
+                  <th>ขนาดชิ้นงานที่ติดมาในชุด (ต่อ 1 แผ่นหลัก)</th>
+                  <th>จำนวนแผ่นหลัก</th>
+                  <th>สรุปยอดชิ้นงานที่ได้จากชุดนี้ทั้งหมด</th>
+                </tr>
+              </thead>
+              <tbody id="resultsBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="visualization" class="viz-area"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('btnPrintSummary').addEventListener('click', ()=> window.print());
+
+    function el(tag, attrs={}, children=[]){
+      const node = document.createElement(tag);
+      for(const k in attrs){ if(k==='text') node.textContent = attrs[k]; else node.setAttribute(k, attrs[k]); }
+      (Array.isArray(children)?children:[children]).forEach(c=>{ if(typeof c==='string') node.appendChild(document.createTextNode(c)); else if(c) node.appendChild(c); });
+      return node;
+    }
+
+    const patternsDB = {
+  "A1": { total: 10, sheet:[96,72], items: [{w:44.60, h:87.50, q:8, c:'#3b82f6'}, {w:60.90, h:87.50, q:2, c:'#eab308'}] },
+  "A2": { total: 8,  sheet:[96,72], items: [{w:61.00, h:87.50, q:6, c:'#3b82f6'}, {w:60.80, h:87.50, q:2, c:'#60a5fa'}] },
+  "A3": { total: 8,  sheet:[96,72], items: [{w:54.20, h:87.50, q:6, c:'#3b82f6'}, {w:72.70, h:87.50, q:2, c:'#eab308'}] },
+  "A4": { total: 10, sheet:[96,72], items: [{w:47.50, h:87.50, q:10, c:'#3b82f6'}] },
+  "A5": { total: 6,  sheet:[96,72], items: [{w:92.70, h:87.50, q:4, c:'#3b82f6'}, {w:54.20, h:87.50, q:2, c:'#22c55e'}] },
+  "A6": { total: 6,  sheet:[96,72], items: [{w:82.70, h:87.50, q:4, c:'#3b82f6'}, {w:72.70, h:87.50, q:2, c:'#eab308'}] },
+  "A7": { total: 6,  sheet:[96,72], items: [{w:72.70, h:87.50, q:4, c:'#3b82f6'}, {w:92.70, h:87.50, q:2, c:'#eab308'}] },
+  "A8": { total: 8,  sheet:[96,72], items: [{w:67.70, h:87.50, q:4, c:'#3b82f6'}, {w:52.70, h:87.50, q:4, c:'#eab308'}] },
+  "A9": { total: 8,  sheet:[96,72], items: [{w:52.70, h:87.50, q:6, c:'#3b82f6'}, {w:82.70, h:87.50, q:2, c:'#eab308'}] },
+  "A10": { total: 10, sheet:[96,72], items: [{w:42.80, h:87.50, q:8, c:'#3b82f6'}, {w:72.60, h:87.50, q:2, c:'#eab308'}] },
+  "A11": { total: 10, sheet:[96,84], items: [{w:42.80, h:107.50, q:4, c:'#3b82f6'}, {w:42.80, h:97.50, q:4, c:'#22c55e'}, {w:72.60, h:107.50, q:1, c:'#ef4444'}, {w:72.60, h:97.50, q:1, c:'#eab308'}] },
+  "A12": { total: 8,  sheet:[96,84], items: [{w:52.70, h:107.50, q:3, c:'#3b82f6'}, {w:52.70, h:97.50, q:3, c:'#22c55e'}, {w:82.70, h:107.50, q:1, c:'#ef4444'}, {w:82.70, h:97.50, q:1, c:'#eab308'}] },
+  "A13": { total: 8,  sheet:[96,84], items: [{w:67.70, h:107.50, q:2, c:'#3b82f6'}, {w:67.70, h:97.50, q:2, c:'#22c55e'}, {w:52.70, h:107.50, q:2, c:'#eab308'}, {w:52.70, h:97.50, q:2, c:'#ef4444'}] },
+  "A14": { total: 6,  sheet:[96,84], items: [{w:72.70, h:107.50, q:2, c:'#3b82f6'}, {w:72.70, h:97.50, q:2, c:'#22c55e'}, {w:92.70, h:107.50, q:1, c:'#ef4444'}, {w:92.70, h:97.50, q:1, c:'#eab308'}] },
+  "A15": { total: 6,  sheet:[96,84], items: [{w:82.70, h:107.50, q:2, c:'#3b82f6'}, {w:82.70, h:97.50, q:2, c:'#22c55e'}, {w:72.70, h:107.50, q:1, c:'#ef4444'}, {w:72.70, h:97.50, q:1, c:'#eab308'}] },
+  "A16": { total: 6,  sheet:[96,84], items: [{w:92.70, h:107.50, q:2, c:'#3b82f6'}, {w:92.70, h:97.50, q:2, c:'#22c55e'}, {w:54.20, h:107.50, q:1, c:'#eab308'}, {w:54.20, h:97.50, q:1, c:'#ef4444'}] },
+  "A17": { total: 10, sheet:[96,84], items: [{w:47.50, h:107.50, q:5, c:'#3b82f6'}, {w:47.50, h:97.50, q:5, c:'#22c55e'}] },
+  "A18": { total: 8,  sheet:[96,84], items: [{w:54.20, h:107.50, q:3, c:'#3b82f6'}, {w:54.20, h:97.50, q:3, c:'#22c55e'}, {w:72.70, h:107.50, q:1, c:'#eab308'}, {w:72.70, h:97.50, q:1, c:'#ef4444'}] },
+  "A19": { total: 8,  sheet:[96,84], items: [{w:61.00, h:107.50, q:3, c:'#3b82f6'}, {w:61.00, h:97.50, q:3, c:'#22c55e'}, {w:60.80, h:107.50, q:1, c:'#60a5fa'}, {w:60.80, h:97.50, q:1, c:'#4ade80'}] },
+  "A20": { total: 10, sheet:[96,84], items: [{w:44.60, h:107.50, q:4, c:'#3b82f6'}, {w:44.60, h:97.50, q:4, c:'#22c55e'}, {w:60.90, h:107.50, q:1, c:'#eab308'}, {w:60.90, h:97.50, q:1, c:'#ef4444'}] },
+  "A21": { total: 15, sheet:[120,84], items: [{w:107.50, h:42.60, q:2, c:'#3b82f6'}, {w:107.50, h:42.70, q:8, c:'#60a5fa'}, {w:87.50, h:42.60, q:1, c:'#22c55e'}, {w:87.50, h:42.70, q:4, c:'#4ade80'}] },
+  "A22": { total: 12, sheet:[120,84], items: [{w:107.50, h:52.70, q:8, c:'#3b82f6'}, {w:87.50, h:52.70, q:4, c:'#22c55e'}] },
+  "A23": { total: 9,  sheet:[120,84], items: [{w:107.50, h:72.80, q:2, c:'#ec4899'}, {w:107.50, h:67.80, q:4, c:'#3b82f6'}, {w:87.50, h:72.80, q:1, c:'#eab308'}, {w:87.50, h:67.80, q:2, c:'#22c55e'}] },
+  "A24": { total: 9,  sheet:[120,84], items: [{w:107.50, h:67.80, q:2, c:'#ec4899'}, {w:107.50, h:72.80, q:4, c:'#3b82f6'}, {w:87.50, h:67.80, q:1, c:'#ef4444'}, {w:87.50, h:72.80, q:2, c:'#eab308'}] },
+  "A25": { total: 9,  sheet:[120,84], items: [{w:107.50, h:44.60, q:2, c:'#ec4899'}, {w:107.50, h:82.70, q:4, c:'#3b82f6'}, {w:87.50, h:44.60, q:1, c:'#eab308'}, {w:87.50, h:82.70, q:2, c:'#22c55e'}] },
+  "A26": { total: 9,  sheet:[120,84], items: [{w:107.50, h:52.80, q:2, c:'#eab308'}, {w:107.50, h:67.80, q:2, c:'#22c55e'}, {w:107.50, h:92.80, q:2, c:'#3b82f6'}, {w:87.50, h:52.80, q:1, c:'#ec4899'}, {w:87.50, h:67.80, q:1, c:'#ef4444'}, {w:87.50, h:92.80, q:1, c:'#374151'}] },
+  "A27": { total: 12, sheet:[120,84], items: [{w:107.50, h:67.80, q:2, c:'#eab308'}, {w:107.50, h:47.50, q:6, c:'#3b82f6'}, {w:87.50, h:67.80, q:1, c:'#ec4899'}, {w:87.50, h:47.50, q:3, c:'#22c55e'}] },
+  "A28": { total: 12, sheet:[120,84], items: [{w:107.50, h:47.50, q:2, c:'#ec4899'}, {w:107.50, h:54.20, q:6, c:'#3b82f6'}, {w:87.50, h:47.50, q:1, c:'#ef4444'}, {w:87.50, h:54.20, q:3, c:'#22c55e'}] },
+  "A29": { total: 12, sheet:[120,84], items: [{w:107.50, h:44.60, q:4, c:'#22c55e'}, {w:107.50, h:60.90, q:4, c:'#3b82f6'}, {w:87.50, h:44.60, q:2, c:'#eab308'}, {w:87.50, h:60.90, q:2, c:'#ef4444'}] },
+  "A30": { total: 12, sheet:[120,84], items: [{w:107.50, h:72.70, q:2, c:'#ef4444'}, {w:107.50, h:44.60, q:6, c:'#3b82f6'}, {w:87.50, h:72.70, q:1, c:'#eab308'}, {w:87.50, h:44.60, q:3, c:'#22c55e'}] },
+  "A31": { total: 12, sheet:[120,84], items: [{w:97.50, h:72.70, q:2, c:'#ef4444'}, {w:97.50, h:44.60, q:6, c:'#3b82f6'}, {w:107.50, h:72.70, q:1, c:'#eab308'}, {w:107.50, h:44.60, q:3, c:'#22c55e'}] },
+  "A32": { total: 12, sheet:[120,84], items: [{w:97.50, h:44.60, q:4, c:'#22c55e'}, {w:97.50, h:60.90, q:4, c:'#3b82f6'}, {w:107.50, h:44.60, q:2, c:'#eab308'}, {w:107.50, h:60.90, q:2, c:'#ef4444'}] },
+  "A33": { total: 12, sheet:[120,84], items: [{w:97.50, h:47.50, q:2, c:'#ec4899'}, {w:97.50, h:54.20, q:6, c:'#3b82f6'}, {w:107.50, h:47.50, q:1, c:'#ef4444'}, {w:107.50, h:54.20, q:3, c:'#22c55e'}] },
+  "A34": { total: 12, sheet:[120,84], items: [{w:97.50, h:67.80, q:2, c:'#eab308'}, {w:97.50, h:47.50, q:6, c:'#3b82f6'}, {w:107.50, h:67.80, q:1, c:'#ec4899'}, {w:107.50, h:47.50, q:3, c:'#22c55e'}] },
+  "A35": { total: 9,  sheet:[120,84], items: [{w:97.50, h:52.80, q:2, c:'#eab308'}, {w:97.50, h:67.80, q:2, c:'#22c55e'}, {w:97.50, h:92.80, q:2, c:'#3b82f6'}, {w:107.50, h:52.80, q:1, c:'#ec4899'}, {w:107.50, h:67.80, q:1, c:'#ef4444'}, {w:107.50, h:92.80, q:1, c:'#374151'}] },
+  "A36": { total: 9,  sheet:[120,84], items: [{w:97.50, h:44.60, q:2, c:'#ec4899'}, {w:97.50, h:82.70, q:4, c:'#3b82f6'}, {w:107.50, h:44.60, q:1, c:'#eab308'}, {w:107.50, h:82.70, q:2, c:'#22c55e'}] },
+  "A37": { total: 9,  sheet:[120,84], items: [{w:97.50, h:67.80, q:2, c:'#ec4899'}, {w:97.50, h:72.80, q:4, c:'#3b82f6'}, {w:107.50, h:67.80, q:1, c:'#ef4444'}, {w:107.50, h:72.80, q:2, c:'#eab308'}] },
+  "A38": { total: 9,  sheet:[120,84], items: [{w:97.50, h:72.80, q:2, c:'#ec4899'}, {w:97.50, h:67.80, q:4, c:'#3b82f6'}, {w:107.50, h:72.80, q:1, c:'#eab308'}, {w:107.50, h:67.80, q:2, c:'#22c55e'}] },
+  "A39": { total: 12, sheet:[120,84], items: [{w:97.50, h:52.70, q:8, c:'#3b82f6'}, {w:107.50, h:52.70, q:4, c:'#22c55e'}] },
+  "A40": { total: 15, sheet:[120,84], items: [{w:97.50, h:42.60, q:2, c:'#3b82f6'}, {w:97.50, h:42.70, q:8, c:'#60a5fa'}, {w:107.50, h:42.60, q:1, c:'#22c55e'}, {w:107.50, h:42.70, q:4, c:'#4ade80'}] },
+  "A41": { total: 6,  sheet:[120,72], items: [{w:89.70, h:182.80, q:1, c:'#eab308'}, {w:43.00, h:182.80, q:5, c:'#22c55e'}] },
+  "A42": { total: 4,  sheet:[120,72], items: [{w:89.60, h:182.80, q:2, c:'#22c55e'}, {w:59.60, h:182.80, q:2, c:'#eab308'}] },
+  "A43": { total: 7,  sheet:[120,72], items: [{w:42.90, h:182.80, q:7, c:'#22c55e'}] },
+  "A44": { total: 4,  sheet:[96,72], items: [{w:59.60, h:182.80, q:4, c:'#3b82f6'}] },
+  "A45": { total: 5,  sheet:[96,72], items: [{w:42.90, h:182.80, q:4, c:'#3b82f6'}, {w:69.60, h:182.80, q:1, c:'#22c55e'}] },
+  "A46": { total: 3,  sheet:[96,72], items: [{w:89.60, h:182.80, q:2, c:'#3b82f6'}, {w:64.60, h:182.80, q:1, c:'#22c55e'}] },
+  "A47": { total: 3,  sheet:[96,72], items: [{w:79.60, h:182.80, q:3, c:'#3b82f6'}] },
+  "A48": { total: 4,  sheet:[96,72], items: [{w:69.60, h:182.80, q:2, c:'#3b82f6'}, {w:42.90, h:182.80, q:1, c:'#22c55e'}, {w:59.60, h:182.80, q:1, c:'#eab308'}] },
+  "A49": { total: 4,  sheet:[96,72], items: [{w:64.60, h:182.80, q:3, c:'#3b82f6'}, {w:42.90, h:182.80, q:1, c:'#22c55e'}] },
+  "A50": { total: 3,  sheet:[84,72], items: [{w:69.60, h:182.80, q:3, c:'#3b82f6'}] }
+};
+
+    const requests = [];
+
+    (function initDropdown(){
+      const select = document.getElementById('sizeSelect');
+      const uniqueSizes = new Map();
+      Object.values(patternsDB).forEach(p => p.items.forEach(i => uniqueSizes.set(`${i.w.toFixed(2)}|${i.h.toFixed(2)}`, [i.w, i.h])));
+      Array.from(uniqueSizes.values()).sort((a,b)=>a[0]-b[0]||a[1]-b[1]).forEach(([w,h]) => {
+        select.appendChild(el('option', { value: `${w.toFixed(2)}|${h.toFixed(2)}` }, [`${w.toFixed(2)} × ${h.toFixed(2)} ซม.`]));
+      });
+      select.insertAdjacentHTML('afterbegin', '<option value="">-- เลือกขนาด --</option>');
+      select.value = "";
+    })();
+
+    document.getElementById('btnAdd').addEventListener('click', ()=>{
+      const selectVal = document.getElementById('sizeSelect').value;
+      const qty = parseInt(document.getElementById('needQty').value) || 0;
+      if(!selectVal || qty <= 0) return alert('กรุณาเลือกขนาดและระบุจำนวน');
+      const [w, h] = selectVal.split('|').map(Number);
+      const existing = requests.find(r => Math.abs(r.w-w)<0.1 && Math.abs(r.h-h)<0.1);
+      if(existing) existing.qty += qty; else requests.push({w, h, qty, allocated: 0});
+      renderRequests();
+    });
+
+    document.getElementById('btnClearList').addEventListener('click', ()=>{
+      requests.length = 0; renderRequests();
+      document.getElementById('resultsBody').innerHTML = '';
+      document.getElementById('visualization').innerHTML = '';
+    });
+
+    function renderRequests(){
+      const tbody = document.getElementById('requestList'); tbody.innerHTML = '';
+      requests.forEach((r,i)=>{
+        tbody.appendChild(el('tr',{},[el('td',{},[String(i+1)]), el('td',{},[`${r.w.toFixed(2)}×${r.h.toFixed(2)}`]), el('td',{},[String(r.qty)]), el('td',{class:'text-info'},[String(r.allocated)])]));
+      });
+    }
+
+    document.getElementById('btnOptimize').addEventListener('click', ()=>{
+      if(requests.length === 0) return alert('กรุณาเพิ่มรายการขนาดก่อนครับ');
+      
+      requests.forEach(r => r.allocated = 0);
+      const tbody = document.getElementById('resultsBody'); tbody.innerHTML = '';
+      const viz = document.getElementById('visualization'); viz.innerHTML = '';
+
+      let currentStep = 1;
+
+      while(requests.some(r => r.allocated < r.qty)) {
+        let bestPatternId = null;
+        let bestScore = -1;
+        let maxMultiplier = 0;
+
+        for (const [pId, pData] of Object.entries(patternsDB)) {
+          let patternScore = 0;
+          pData.items.forEach(pItem => {
+            const req = requests.find(r => (Math.abs(r.w-pItem.w)<0.1 && Math.abs(r.h-pItem.h)<0.1) || (Math.abs(r.w-pItem.h)<0.1 && Math.abs(r.h-pItem.w)<0.1));
+            if(req && req.allocated < req.qty) {
+              patternScore += pItem.q * 10;
+            }
+          });
+
+          if(patternScore > bestScore) {
+            bestScore = patternScore;
+            bestPatternId = pId;
+          }
+        }
+
+        if(!bestPatternId || bestScore === 0) {
+          const unfulfilledReq = requests.find(r => r.allocated < r.qty);
+          if(unfulfilledReq) unfulfilledReq.allocated = unfulfilledReq.qty; 
+          continue;
+        }
+
+        const pData = patternsDB[bestPatternId];
+        let setsToRun = 1;
+        pData.items.forEach(pItem => {
+          const req = requests.find(r => (Math.abs(r.w-pItem.w)<0.1 && Math.abs(r.h-pItem.h)<0.1) || (Math.abs(r.w-pItem.h)<0.1 && Math.abs(r.h-pItem.w)<0.1));
+          if(req && req.allocated < req.qty) {
+            let neededSets = Math.ceil((req.qty - req.allocated) / pItem.q);
+            if(neededSets > setsToRun) setsToRun = neededSets;
+          }
+        });
+
+        let summaryItems = [];
+        pData.items.forEach(pItem => {
+          const req = requests.find(r => (Math.abs(r.w-pItem.w)<0.1 && Math.abs(r.h-pItem.h)<0.1) || (Math.abs(r.w-pItem.h)<0.1 && Math.abs(r.h-pItem.w)<0.1));
+          let productionQty = pItem.q * setsToRun;
+          if(req) {
+            req.allocated += Math.min(productionQty, req.qty - req.allocated);
+          }
+          summaryItems.push(`${pItem.w.toFixed(1)}×${pItem.h.toFixed(1)} ซม. (ได้รวม ${productionQty} แผ่น)`);
+        });
+
+        renderMixResultRow(currentStep, bestPatternId, setsToRun, summaryItems.join(', '), pData);
+        currentStep++;
+      }
+
+      renderRequests();
+    });
+
+    function renderMixResultRow(step, pId, sheets, details, pData) {
+      const tbody = document.getElementById('resultsBody');
+      
+      // สร้าง Badge รายการขนาดที่ติดมาในแผ่น (ต่อ 1 แผ่นใหญ่)
+      const staticSizesContainer = el('div', {}, []);
+      pData.items.forEach(item => {
+        staticSizesContainer.appendChild(el('span', {class: 'component-badge'}, [`${item.w.toFixed(1)}×${item.h.toFixed(1)} [มี ${item.q} ชิ้น/แผ่น]`]));
+      });
+
+      tbody.appendChild(el('tr', {}, [
+        el('td', {}, [`ชุดที่ ${step}`]),
+        el('td', {}, [el('span', {class:'pattern-tag'}, [pId])]),
+        el('td', {}, [staticSizesContainer]),
+        el('td', {class:'text-success fw-bold'}, [`${sheets} แผ่นใหญ่`]),
+        el('td', {}, [details])
+      ]));
+
+      // โครงสร้างแผนภาพด้านล่าง
+      const viz = document.getElementById('visualization');
+      const card = el('div', {class:'viz-card glass-card'}, [
+        el('div', {class:'best-badge', text:`ชุดที่ ${step} / แพทเทิร์น ${pId}`}),
+        el('h6', {class:'text-info mb-3'}, [`ผังตัดจำลอง (จำนวนพิมพ์ผลิต ${sheets} แผ่นหลัก)`])
+      ]);
+
+      // ---------- Guillotine 2D Bin Packing: ขนาดแผ่นคำนวณตามแพทเทิร์นนั้นๆ ----------
+      const pieces = [];
+      pData.items.forEach(item => {
+        for(let k=0; k<item.q; k++) pieces.push({w:item.w, h:item.h, label:`${item.w}×${item.h}`});
+      });
+      pieces.sort((a,b)=> (b.w*b.h) - (a.w*a.h));
+
+      const totalArea = pieces.reduce((s,p)=> s + p.w*p.h, 0);
+      const maxPieceW = Math.max(...pieces.map(p=>p.w));
+      const maxPieceH = Math.max(...pieces.map(p=>p.h));
+
+      // guillotine packer สำหรับแผ่นเดียว (รองรับการหมุนชิ้นงาน 90 องศา และความคลาดเคลื่อน ±0.2 ซม.)
+      const TOL = 0.2;
+      function guillotinePackOneSheetCore(remainingPieces, binW, binH){
+        let freeRects = [{x:0,y:0,w:binW,h:binH}];
+        const placed = [];
+        const leftover = [];
+        for(const p of remainingPieces){
+          let bestIdx = -1, bestScore = Infinity, bestRot = false;
+          for(let i=0;i<freeRects.length;i++){
+            const r = freeRects[i];
+            if(p.w <= r.w + TOL && p.h <= r.h + TOL){
+              const score = (r.w*r.h) - (p.w*p.h);
+              if(score < bestScore){ bestScore = score; bestIdx = i; bestRot = false; }
+            }
+            if(Math.abs(p.w-p.h) > 1e-6 && p.h <= r.w + TOL && p.w <= r.h + TOL){
+              const score = (r.w*r.h) - (p.w*p.h);
+              if(score < bestScore){ bestScore = score; bestIdx = i; bestRot = true; }
+            }
+          }
+          if(bestIdx === -1){ leftover.push(p); continue; }
+          const r = freeRects[bestIdx];
+          let pw = bestRot ? p.h : p.w;
+          let ph = bestRot ? p.w : p.h;
+          // ถ้าเกินขนาดเล็กน้อยในช่วงคลาดเคลื่อนที่ยอมรับได้ ให้ใช้ขนาดของพื้นที่ว่างแทน (ตัดพอดี)
+          pw = Math.min(pw, r.w);
+          ph = Math.min(ph, r.h);
+          placed.push({x:r.x, y:r.y, w:pw, h:ph, label:p.label, rotated:bestRot});
+          freeRects.splice(bestIdx,1);
+
+          const remW = r.w - pw, remH = r.h - ph;
+          if(remW > TOL || remH > TOL){
+            if(remW <= remH){
+              if(remW > TOL) freeRects.push({x:r.x+pw, y:r.y, w:remW, h:ph});
+              if(remH > TOL) freeRects.push({x:r.x, y:r.y+ph, w:r.w, h:remH});
+            } else {
+              if(remH > TOL) freeRects.push({x:r.x, y:r.y+ph, w:pw, h:remH});
+              if(remW > TOL) freeRects.push({x:r.x+pw, y:r.y, w:remW, h:r.h});
+            }
+          }
+        }
+        const waste = freeRects.filter(r => r.w > TOL && r.h > TOL);
+        return {placed, leftover, waste};
+      }
+
+      // ลองหลายลำดับการวางชิ้นงาน แล้วเลือกผลลัพธ์ที่เศษเหลือน้อยที่สุด
+      function guillotinePackOneSheet(remainingPieces, binW, binH){
+        const orderings = [
+          [...remainingPieces].sort((a,b)=> (b.w*b.h)-(a.w*a.h)),
+          [...remainingPieces].sort((a,b)=> Math.max(b.w,b.h)-Math.max(a.w,a.h)),
+          [...remainingPieces].sort((a,b)=> b.h-a.h || b.w-a.w),
+          [...remainingPieces].sort((a,b)=> b.w-a.w || b.h-a.h),
+          [...remainingPieces]
+        ];
+        let best = null;
+        for(const order of orderings){
+          const r = guillotinePackOneSheetCore(order, binW, binH);
+          const wasteArea = r.waste.reduce((s,w)=>s + w.w*w.h, 0);
+          const score = r.leftover.length*1e9 + wasteArea;
+          if(!best || score < best.score){ best = {...r, score}; }
+        }
+        return best;
+      }
+
+      let SHEET_W, SHEET_H;
+      if(pData.sheet){
+        // ขนาดแผ่นกำหนดเป็นนิ้ว แปลงเป็น ซม. (1 นิ้ว = 2.54 ซม.)
+        const [swIn, shIn] = pData.sheet;
+        SHEET_W = swIn * 2.54;
+        SHEET_H = shIn * 2.54;
+        // ตรวจสอบว่าชิ้นงานพอดีกับแผ่นขนาดนี้หรือไม่ ถ้าไม่พอดีให้สลับด้าน (กรณีวางแนวขวาง)
+        let r = guillotinePackOneSheet(pieces, SHEET_W, SHEET_H);
+        if(r.leftover.length > 0){
+          const r2 = guillotinePackOneSheet(pieces, SHEET_H, SHEET_W);
+          if(r2.leftover.length === 0){ [SHEET_W, SHEET_H] = [SHEET_H, SHEET_W]; }
+        }
+      }
+
+      if(!SHEET_W){
+        // หาขนาดแผ่น (binW x binH) ที่เล็กที่สุดที่จัดวางชิ้นงานทั้งหมด 1 ชุด ได้พอดี (fallback)
+        let candidateWidths = new Set();
+        candidateWidths.add(maxPieceW);
+        let cum = 0;
+        pieces.forEach(p=>{ cum += p.w; candidateWidths.add(Math.round(cum*100)/100); });
+        for(let i=2;i<=4;i++) candidateWidths.add(Math.round(maxPieceW*i*100)/100);
+
+        let best = null;
+        candidateWidths.forEach(bw=>{
+          if(bw < maxPieceW) return;
+          const maxH = totalArea / bw * 1.6 + maxPieceH;
+          for(let bh = maxPieceH; bh <= maxH; bh += 1){
+            const r = guillotinePackOneSheet(pieces, bw, bh);
+            if(r.leftover.length === 0){
+              const area = bw*bh;
+              const efficiency = totalArea/area;
+              if(!best || efficiency > best.efficiency + 0.0005 || (Math.abs(efficiency-best.efficiency)<0.0005 && area < best.area)){
+                best = {bw, bh, area, efficiency};
+              }
+              break;
+            }
+          }
+        });
+
+        if(best){
+          SHEET_W = best.bw; SHEET_H = best.bh;
+        } else {
+          SHEET_W = maxPieceW;
+          SHEET_H = pieces.reduce((s,p)=>s+p.h,0);
+        }
+      }
+
+      // จัดชิ้นงานทั้งหมดลงในหลายแผ่นตามจำนวน sheets ที่คำนวณไว้
+      const sheetLayouts = [];
+      let remaining = pieces.slice();
+      for(let s=0; s<sheets && remaining.length>0; s++){
+        const r = guillotinePackOneSheet(remaining, SHEET_W, SHEET_H);
+        sheetLayouts.push({placed:r.placed, waste:r.waste});
+        remaining = r.leftover;
+      }
+      while(remaining.length>0){
+        const r = guillotinePackOneSheet(remaining, SHEET_W, SHEET_H);
+        if(r.placed.length===0) break;
+        sheetLayouts.push({placed:r.placed, waste:r.waste});
+        remaining = r.leftover;
+      }
+
+      const binW = SHEET_W, binH = SHEET_H;
+
+      const container = el('div', {style:'display:flex; flex-wrap:wrap; gap:18px;'}, []);
+      const maxBoxW = 280, maxBoxH = 380;
+      const scale = Math.min(maxBoxW/binW, maxBoxH/binH);
+
+      sheetLayouts.forEach((layout, s) => {
+        const wrap = el('div', {style:'display:flex; flex-direction:column;'}, [
+          el('div', {style:'font-weight:700; font-size:15px; color:#e6eef8; margin-bottom:2px;'}, [`Layout #${s+1}`]),
+          el('div', {style:'font-size:12px; color:#94a3b8; margin-bottom:8px;'}, [`จำนวน ${layout.placed.length} ชิ้นในแผ่นนี้ (แผ่น ${binW.toFixed(1)}×${binH.toFixed(1)} ซม.)`])
+        ]);
+        const sheetBox = el('div', {style:`position:relative; width:${binW*scale}px; height:${binH*scale}px; background:#ffffff; border:1px solid #94a3b8; box-sizing:border-box;`}, []);
+
+        // วาดชิ้นงาน
+        layout.placed.forEach(p=>{
+          const pw = p.w*scale, ph = p.h*scale;
+          const piece = el('div', {style:`position:absolute; left:${p.x*scale}px; top:${p.y*scale}px; width:${pw}px; height:${ph}px; background:#cfe8d8; border:1px solid #ffffff; outline:1px solid #94a3b8; display:flex; align-items:center; justify-content:center; box-sizing:border-box; overflow:hidden;`}, [
+            el('span', {style:`color:#1e293b; font-size:12px; font-weight:600; text-align:center; padding:2px; line-height:1.2;`}, [p.label])
+          ]);
+          sheetBox.appendChild(piece);
+        });
+
+        // วาดพื้นที่เศษกระจก (waste) ไฮไลท์ด้วยสีต่างออกไป
+        layout.waste.forEach(w=>{
+          const ww = w.w*scale, wh = w.h*scale;
+          const wastePiece = el('div', {style:`position:absolute; left:${w.x*scale}px; top:${w.y*scale}px; width:${ww}px; height:${wh}px; background:repeating-linear-gradient(45deg, #fde68a, #fde68a 6px, #fbbf24 6px, #fbbf24 12px); border:1px dashed #b45309; display:flex; align-items:center; justify-content:center; box-sizing:border-box; overflow:hidden;`}, [
+            el('span', {style:`color:#78350f; font-size:11px; font-weight:700; text-align:center; padding:2px; line-height:1.2; background:rgba(255,255,255,0.6); border-radius:3px;`}, [`เศษ ${w.w.toFixed(1)}×${w.h.toFixed(1)}`])
+          ]);
+          sheetBox.appendChild(wastePiece);
+        });
+
+        wrap.appendChild(sheetBox);
+        container.appendChild(wrap);
+      });
+      card.appendChild(container);
+      viz.appendChild(card);
+    }
+  </script>
+</body>
+</html>
